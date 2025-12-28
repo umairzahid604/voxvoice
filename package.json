@@ -1,0 +1,29 @@
+{
+    "name": "voxvoice",
+    "version": "1.0.0",
+    "description": "Client library for Voice Generation API",
+    "main": "dist/index.js",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup src/index.ts --format cjs,esm --dts",
+        "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+        "prepublishOnly": "npm run build"
+    },
+    "keywords": [
+        "voice",
+        "tts",
+        "text-to-speech",
+        "audio",
+        "generation"
+    ],
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "tsup": "^8.0.0",
+        "typescript": "^5.0.0"
+    }
+}
