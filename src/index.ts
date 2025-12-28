@@ -1,3 +1,5 @@
+import { processAudio, validateOptions, AudioProcessingOptions } from './audioProcessor';
+
 // Types
 export interface VoiceListResponse {
     voices: string[];
@@ -8,6 +10,8 @@ export interface VoiceListResponse {
 export interface GenerateOptions {
     text: string;
     voice?: string;
+    volume?: number;        // 0.0 to 2.0, default 1.0
+    playbackSpeed?: number; // 0.5 to 2.0, default 1.0
 }
 
 export interface VoiceClientConfig {
@@ -45,6 +49,9 @@ export class VoiceClient {
      * @returns Audio as Blob
      */
     async generate(options: GenerateOptions): Promise<Blob> {
+        // Validate audio processing options
+        validateOptions({ volume: options.volume, playbackSpeed: options.playbackSpeed });
+
         const response = await fetch(`${this.baseUrl}/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -59,7 +66,17 @@ export class VoiceClient {
             throw new Error(error.detail || 'Generation failed');
         }
 
-        return response.blob();
+        let audioBlob = await response.blob();
+
+        // Apply audio processing if volume or playbackSpeed specified
+        if (options.volume !== undefined || options.playbackSpeed !== undefined) {
+            audioBlob = await processAudio(audioBlob, {
+                volume: options.volume,
+                playbackSpeed: options.playbackSpeed
+            });
+        }
+
+        return audioBlob;
     }
 
     /**

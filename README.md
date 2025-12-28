@@ -37,6 +37,14 @@ const audioBlob = await client.generate({
   text: 'Hello world',
   voice: 'fireship' 
 });
+
+// With volume and playback speed
+const audioBlob = await client.generate({ 
+  text: 'Hello world',
+  voice: 'fireship',
+  volume: 1.5,        // 50% louder (0.0 to 2.0)
+  playbackSpeed: 1.2  // 20% faster (0.5 to 2.0)
+});
 ```
 
 ### Different Output Formats
@@ -86,6 +94,15 @@ writeFileSync('output.wav', Buffer.from(buffer));
 | `generateBuffer(options)` | `ArrayBuffer` | Generate as ArrayBuffer |
 | `generateBase64(options)` | `string` | Generate as Base64 |
 | `generateDataUrl(options)` | `string` | Generate as data URL |
+
+### GenerateOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `text` | `string` | required | Text to convert to speech |
+| `voice` | `string` | API default | Voice to use |
+| `volume` | `number` | `1.0` | Volume level (0.0 to 2.0) |
+| `playbackSpeed` | `number` | `1.0` | Playback speed (0.5 to 2.0) |
 
 ## License
 

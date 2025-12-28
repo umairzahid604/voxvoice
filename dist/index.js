@@ -1,7 +1,9 @@
 "use strict";
+var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -15,6 +17,14 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // src/index.ts
@@ -25,6 +35,62 @@ __export(index_exports, {
   default: () => index_default
 });
 module.exports = __toCommonJS(index_exports);
+
+// src/audioProcessor.ts
+var path = __toESM(require("path"));
+var fs = __toESM(require("fs"));
+var os = __toESM(require("os"));
+function validateOptions(options) {
+  if (options.volume !== void 0) {
+    if (options.volume < 0 || options.volume > 2) {
+      throw new Error("Volume must be between 0.0 and 2.0");
+    }
+  }
+  if (options.playbackSpeed !== void 0) {
+    if (options.playbackSpeed < 0.5 || options.playbackSpeed > 2) {
+      throw new Error("Playback speed must be between 0.5 and 2.0");
+    }
+  }
+}
+async function processAudio(audioBlob, options) {
+  const { volume = 1, playbackSpeed = 1 } = options;
+  if (volume === 1 && playbackSpeed === 1) {
+    return audioBlob;
+  }
+  const ffmpegInstaller = await import("@ffmpeg-installer/ffmpeg");
+  const ffmpegModule = await import("fluent-ffmpeg");
+  const ffmpeg = ffmpegModule.default || ffmpegModule;
+  ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+  const tempDir = os.tmpdir();
+  const inputPath = path.join(tempDir, `voxvoice_input_${Date.now()}.wav`);
+  const outputPath = path.join(tempDir, `voxvoice_output_${Date.now()}.wav`);
+  try {
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    fs.writeFileSync(inputPath, Buffer.from(arrayBuffer));
+    const filters = [];
+    if (volume !== 1) {
+      filters.push(`volume=${volume}`);
+    }
+    if (playbackSpeed !== 1) {
+      const clampedSpeed = Math.max(0.5, Math.min(2, playbackSpeed));
+      filters.push(`atempo=${clampedSpeed}`);
+    }
+    await new Promise((resolve, reject) => {
+      let command = ffmpeg(inputPath);
+      if (filters.length > 0) {
+        command = command.audioFilters(filters);
+      }
+      command.output(outputPath).on("end", () => resolve()).on("error", (err) => reject(err)).run();
+    });
+    const outputBuffer = fs.readFileSync(outputPath);
+    return new Blob([outputBuffer], { type: "audio/wav" });
+  } finally {
+    if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+  }
+}
+
+// src/index.ts
 var VoiceClient = class {
   constructor(config) {
     this.baseUrl = config.baseUrl.replace(/\/$/, "");
@@ -50,6 +116,7 @@ var VoiceClient = class {
    * @returns Audio as Blob
    */
   async generate(options) {
+    validateOptions({ volume: options.volume, playbackSpeed: options.playbackSpeed });
     const response = await fetch(`${this.baseUrl}/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -62,7 +129,14 @@ var VoiceClient = class {
       const error = await response.json();
       throw new Error(error.detail || "Generation failed");
     }
-    return response.blob();
+    let audioBlob = await response.blob();
+    if (options.volume !== void 0 || options.playbackSpeed !== void 0) {
+      audioBlob = await processAudio(audioBlob, {
+        volume: options.volume,
+        playbackSpeed: options.playbackSpeed
+      });
+    }
+    return audioBlob;
   }
   /**
    * Generate audio and return as ArrayBuffer

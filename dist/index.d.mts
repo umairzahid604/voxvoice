@@ -6,6 +6,8 @@ interface VoiceListResponse {
 interface GenerateOptions {
     text: string;
     voice?: string;
+    volume?: number;
+    playbackSpeed?: number;
 }
 interface VoiceClientConfig {
     baseUrl: string;
